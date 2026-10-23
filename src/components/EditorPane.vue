@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import type { PolicyBuilder } from '../usePolicyBuilder.js';
-import type { Policy, Endpoint } from '../schema.js';
 
 const props = defineProps<{ builder: PolicyBuilder }>();
 
@@ -11,6 +10,83 @@ const sections = computed(() => Object.keys(policy.value).filter((k) => k !== 'v
 const PROTOS = ['rest', 'websocket', 'graphql', 'mcp', 'json-rpc', 'tcp'];
 const ACCESS = ['read-only', 'read-write', 'full'];
 
+// Inline input state — replaces native prompt()
+const addingPath = ref<{ field: 'read_only' | 'read_write'; value: string } | null>(null);
+const addingBinary = ref<string | null>(null);  // rule key
+const addingMwInclude = ref<string | null>(null);  // middleware key
+const addingMwExclude = ref<string | null>(null);  // middleware key
+const addingMwKey = ref(false);
+
+function startAddPath(field: 'read_only' | 'read_write') {
+  addingPath.value = { field, value: '' };
+}
+function confirmAddPath() {
+  if (!addingPath.value) return;
+  const { field, value } = addingPath.value;
+  if (value && value.startsWith('/')) {
+    const fs = policy.value.filesystem_policy!;
+    if (!fs[field]) fs[field] = [];
+    fs[field]!.push(value);
+  }
+  addingPath.value = null;
+}
+
+function startAddBinary(ruleKey: string) {
+  addingBinary.value = '';
+  // Store key on the ref via closure
+  pendingBinaryRule.value = ruleKey;
+}
+const pendingBinaryRule = ref('');
+function confirmAddBinary() {
+  if (addingBinary.value && pendingBinaryRule.value) {
+    props.builder.addNetworkBinary(pendingBinaryRule.value, addingBinary.value);
+  }
+  addingBinary.value = null;
+  pendingBinaryRule.value = '';
+}
+
+function startAddMwInclude(key: string) {
+  addingMwInclude.value = '';
+  pendingMwKey.value = key;
+}
+function startAddMwExclude(key: string) {
+  addingMwExclude.value = '';
+  pendingMwKey.value = key;
+}
+const pendingMwKey = ref('');
+function confirmAddMwInclude() {
+  if (addingMwInclude.value && pendingMwKey.value) {
+    const mw = policy.value.network_middlewares?.[pendingMwKey.value];
+    if (mw) mw.endpoints.include.push(addingMwInclude.value);
+  }
+  addingMwInclude.value = null;
+  pendingMwKey.value = '';
+}
+function confirmAddMwExclude() {
+  if (addingMwExclude.value && pendingMwKey.value) {
+    const mw = policy.value.network_middlewares?.[pendingMwKey.value];
+    if (mw) {
+      if (!mw.endpoints.exclude) mw.endpoints.exclude = [];
+      mw.endpoints.exclude.push(addingMwExclude.value);
+    }
+  }
+  addingMwExclude.value = null;
+  pendingMwKey.value = '';
+}
+
+const newMwKey = ref('');
+function confirmAddMiddleware() {
+  if (newMwKey.value) {
+    if (!policy.value.network_middlewares) policy.value.network_middlewares = {};
+    policy.value.network_middlewares[newMwKey.value] = {
+      middleware: 'openshell/regex',
+      endpoints: { include: [] },
+    };
+  }
+  newMwKey.value = '';
+  addingMwKey.value = false;
+}
+
 function addEndpointInline(ruleKey: string) {
   props.builder.addNetworkEndpoint(ruleKey);
 }
@@ -19,10 +95,6 @@ function removeEndpointInline(ruleKey: string, i: number) {
 }
 function copyEndpointInline(ruleKey: string, i: number) {
   props.builder.copyNetworkEndpoint(ruleKey, i);
-}
-function addBinaryInline(ruleKey: string) {
-  const v = prompt('Binary path:');
-  if (v) props.builder.addNetworkBinary(ruleKey, v);
 }
 function removeBinary(ruleKey: string, i: number) {
   const rule = policy.value.network_policies?.[ruleKey];
@@ -40,7 +112,6 @@ function onDrop(e: DragEvent) {
   if (sec) { props.builder.addSection(sec); return; }
   const npk = e.dataTransfer?.getData('text/np');
   if (npk) {
-    // simple reorder: move to end
     const keys = Object.keys(policy.value.network_policies ?? {});
     const filtered = keys.filter((k) => k !== npk);
     props.builder.reorderNetworkRules([...filtered, npk]);
@@ -76,7 +147,16 @@ function onDrop(e: DragEvent) {
               <span v-for="(p, i) in policy.filesystem_policy!.read_only" :key="i" class="chip">
                 {{ p }} <button @click="policy.filesystem_policy!.read_only!.splice(i, 1)">✕</button>
               </span>
-              <button class="add-chip" @click="()=>{const v=prompt('Absolute path:');if(v?.startsWith('/'))policy.filesystem_policy!.read_only!.push(v)}">+ add path</button>
+              <button class="add-chip" @click="startAddPath('read_only')" v-if="!addingPath || addingPath.field !== 'read_only'">+ add path</button>
+              <input
+                v-if="addingPath && addingPath.field === 'read_only'"
+                class="inline-input"
+                v-model="addingPath.value"
+                placeholder="/absolute/path"
+                @keydown.enter="confirmAddPath"
+                @blur="confirmAddPath"
+                autofocus
+              />
             </div>
           </div>
           <div class="field">
@@ -85,7 +165,16 @@ function onDrop(e: DragEvent) {
               <span v-for="(p, i) in policy.filesystem_policy!.read_write" :key="i" class="chip">
                 {{ p }} <button @click="policy.filesystem_policy!.read_write!.splice(i, 1)">✕</button>
               </span>
-              <button class="add-chip" @click="()=>{const v=prompt('Absolute path:');if(v?.startsWith('/'))policy.filesystem_policy!.read_write!.push(v)}">+ add path</button>
+              <button class="add-chip" @click="startAddPath('read_write')" v-if="!addingPath || addingPath.field !== 'read_write'">+ add path</button>
+              <input
+                v-if="addingPath && addingPath.field === 'read_write'"
+                class="inline-input"
+                v-model="addingPath.value"
+                placeholder="/absolute/path"
+                @keydown.enter="confirmAddPath"
+                @blur="confirmAddPath"
+                autofocus
+              />
             </div>
           </div>
         </div>
@@ -184,7 +273,16 @@ function onDrop(e: DragEvent) {
                 <span v-for="(b, i) in rule.binaries" :key="i" class="chip">
                   {{ b.path }} <button @click="removeBinary(key as string, i)">✕</button>
                 </span>
-                <button class="add-chip" @click="addBinaryInline(key as string)">+ add binary</button>
+                <button class="add-chip" v-if="addingBinary === null || pendingBinaryRule !== key" @click="startAddBinary(key as string)">+ add binary</button>
+                <input
+                  v-if="addingBinary !== null && pendingBinaryRule === key"
+                  class="inline-input"
+                  v-model="addingBinary"
+                  placeholder="/usr/bin/..."
+                  @keydown.enter="confirmAddBinary"
+                  @blur="confirmAddBinary"
+                  autofocus
+                />
               </div>
             </div>
           </div>
@@ -215,7 +313,16 @@ function onDrop(e: DragEvent) {
                 <span v-for="(p, i) in mw.endpoints.include" :key="i" class="chip">
                   {{ p }} <button @click="mw.endpoints.include.splice(i, 1)">✕</button>
                 </span>
-                <button class="add-chip" @click="()=>{const v=prompt('Host pattern:');if(v)mw.endpoints.include.push(v)}">+ add</button>
+                <button class="add-chip" v-if="addingMwInclude === null || pendingMwKey !== key" @click="startAddMwInclude(key as string)">+ add</button>
+                <input
+                  v-if="addingMwInclude !== null && pendingMwKey === key"
+                  class="inline-input"
+                  v-model="addingMwInclude"
+                  placeholder="*.example.com"
+                  @keydown.enter="confirmAddMwInclude"
+                  @blur="confirmAddMwInclude"
+                  autofocus
+                />
               </div>
             </div>
             <div class="field"><span class="lbl">exclude patterns</span>
@@ -223,11 +330,30 @@ function onDrop(e: DragEvent) {
                 <span v-for="(p, i) in mw.endpoints.exclude" :key="i" class="chip">
                   {{ p }} <button @click="mw.endpoints.exclude!.splice(i, 1)">✕</button>
                 </span>
-                <button class="add-chip" @click="()=>{if(!mw.endpoints.exclude)mw.endpoints.exclude=[];const v=prompt('Host pattern:');if(v)mw.endpoints.exclude.push(v)}">+ add</button>
+                <button class="add-chip" v-if="addingMwExclude === null || pendingMwKey !== key" @click="startAddMwExclude(key as string)">+ add</button>
+                <input
+                  v-if="addingMwExclude !== null && pendingMwKey === key"
+                  class="inline-input"
+                  v-model="addingMwExclude"
+                  placeholder="trusted.example.com"
+                  @keydown.enter="confirmAddMwExclude"
+                  @blur="confirmAddMwExclude"
+                  autofocus
+                />
               </div>
             </div>
           </div>
-          <button class="add-chip" @click="()=>{const k=prompt('Middleware key:');if(k){if(!policy.network_middlewares)policy.network_middlewares={};policy.network_middlewares[k]={middleware:'openshell/regex',endpoints:{include:[]}}}}">+ add middleware</button>
+          <div v-if="addingMwKey" class="mw-key-input">
+            <input
+              class="inline-input"
+              v-model="newMwKey"
+              placeholder="middleware key, e.g. redactor"
+              @keydown.enter="confirmAddMiddleware"
+              @blur="confirmAddMiddleware"
+              autofocus
+            />
+          </div>
+          <button class="add-chip" v-else @click="addingMwKey = true">+ add middleware</button>
         </div>
       </div>
     </div>
@@ -263,6 +389,9 @@ function onDrop(e: DragEvent) {
 .add-chip { background: none; border: 1px dashed var(--border); border-radius: 6px;
   color: var(--muted); padding: 4px 8px; font-size: 12px; cursor: pointer; }
 .add-chip:hover { border-color: var(--accent2); color: var(--accent2); }
+.inline-input { background: var(--bg); border: 1px solid var(--accent2); border-radius: 6px;
+  color: var(--text); padding: 5px 8px; font-size: 12px; width: 160px; outline: none; }
+.mw-key-input { margin-top: 8px; }
 .sub-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
   padding: 10px; margin-top: 8px; }
 .sub-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
