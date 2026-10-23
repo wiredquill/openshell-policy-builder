@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { PolicyBuilder } from '../usePolicyBuilder.js';
+import BinaryPicker from './BinaryPicker.vue';
 
 const props = defineProps<{ builder: PolicyBuilder }>();
 
@@ -12,7 +13,6 @@ const ACCESS = ['read-only', 'read-write', 'full'];
 
 // Inline input state — replaces native prompt()
 const addingPath = ref<{ field: 'read_only' | 'read_write'; value: string } | null>(null);
-const addingBinary = ref<string | null>(null);  // rule key
 const addingMwInclude = ref<string | null>(null);  // middleware key
 const addingMwExclude = ref<string | null>(null);  // middleware key
 const addingMwKey = ref(false);
@@ -31,19 +31,14 @@ function confirmAddPath() {
   addingPath.value = null;
 }
 
-function startAddBinary(ruleKey: string) {
-  addingBinary.value = '';
-  // Store key on the ref via closure
-  pendingBinaryRule.value = ruleKey;
-}
-const pendingBinaryRule = ref('');
-function confirmAddBinary() {
-  if (addingBinary.value && pendingBinaryRule.value) {
-    props.builder.addNetworkBinary(pendingBinaryRule.value, addingBinary.value);
+function onBinaryPick(path: string) {
+  // ruleKey is stored in pendingBinaryRule, set when picker opens
+  if (pendingBinaryRule.value) {
+    props.builder.addNetworkBinary(pendingBinaryRule.value, path);
   }
-  addingBinary.value = null;
   pendingBinaryRule.value = '';
 }
+const pendingBinaryRule = ref('');
 
 function startAddMwInclude(key: string) {
   addingMwInclude.value = '';
@@ -273,15 +268,9 @@ function onDrop(e: DragEvent) {
                 <span v-for="(b, i) in rule.binaries" :key="i" class="chip">
                   {{ b.path }} <button @click="removeBinary(key as string, i)">✕</button>
                 </span>
-                <button class="add-chip" v-if="addingBinary === null || pendingBinaryRule !== key" @click="startAddBinary(key as string)">+ add binary</button>
-                <input
-                  v-if="addingBinary !== null && pendingBinaryRule === key"
-                  class="inline-input"
-                  v-model="addingBinary"
-                  placeholder="/usr/bin/..."
-                  @keydown.enter="confirmAddBinary"
-                  @blur="confirmAddBinary"
-                  autofocus
+                <BinaryPicker
+                  :key="(key as string) + '-' + rule.binaries.length"
+                  @pick="(path: string) => { pendingBinaryRule = key as string; onBinaryPick(path); }"
                 />
               </div>
             </div>
