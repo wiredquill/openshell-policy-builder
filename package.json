@@ -1,0 +1,28 @@
+{
+  "name": "openshell-policy-builder",
+  "version": "0.1.0",
+  "description": "Visual builder and linter for NVIDIA OpenShell sandbox policy YAML",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "vite build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^7.0.2",
+    "vite": "^6.3.5",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "js-yaml": "^5.5.0",
+    "vue": "^3.5.13"
+  }
+}

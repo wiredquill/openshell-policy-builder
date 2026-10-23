@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OpenShell Policy Builder</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --panel2:#1c232c; --border:#2d333b; --text:#e6edf3;
+    --muted:#8b949e; --accent:#7ee787; --accent2:#58a6ff; --danger:#f85149; --warn:#d29922; --ok:#7ee787; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text);
+    font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; font-size:14px; }
+  #app { display:grid; grid-template-rows:auto 1fr; height:100vh; }
+  header { display:flex; align-items:center; gap:14px; padding:10px 18px; background:var(--panel); border-bottom:1px solid var(--border); }
+  header .logo { font-weight:700; font-size:16px; letter-spacing:.3px; }
+  header .logo span { color:var(--accent2); }
+  header .badge { font-size:11px; padding:2px 8px; border:1px solid var(--border); border-radius:10px; color:var(--muted); }
+  header .spacer { flex:1; }
+  header button { background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 12px; font-size:13px; cursor:pointer; transition:.15s; }
+  header button:hover { border-color:var(--accent2); color:var(--accent2); }
+  header button.primary { background:var(--accent); color:#06140a; border-color:var(--accent); font-weight:600; }
+  header button.primary:hover { filter:brightness(1.1); color:#06140a; }
+  .layout { display:grid; grid-template-columns:236px 1fr 1fr; min-height:0; }
+  .pane { border-right:1px solid var(--border); min-width:0; overflow:auto; }
+  .pane:last-child { border-right:none; }
+  .pane h3 { margin:0; padding:12px 14px 8px; font-size:11px; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:2; }
+  .palette { padding:10px; display:flex; flex-direction:column; gap:8px; }
+  .palette-item { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--panel); border:1px solid var(--border); border-radius:8px; cursor:grab; transition:.15s; }
+  .palette-item:hover { border-color:var(--accent2); transform:translateX(2px); }
+  .palette-item .icon { width:22px; height:22px; border-radius:6px; display:grid; place-items:center; font-size:13px; background:var(--panel2); }
+  .palette-item .label { font-size:13px; font-weight:500; }
+  .palette-item .desc { font-size:11px; color:var(--muted); }
+  .palette-info { padding:10px 14px; font-size:11px; color:var(--muted); line-height:1.55; }
+  .editor { padding:12px; }
+  .section-card { background:var(--panel); border:1px solid var(--border); border-radius:10px; margin-bottom:12px; overflow:hidden; }
+  .section-head { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--border); background:var(--panel2); }
+  .section-head .grip { color:var(--muted); font-size:13px; cursor:grab; }
+  .section-head .title { font-weight:600; font-size:14px; }
+  .section-head .tag { font-size:10px; padding:2px 7px; border-radius:10px; border:1px solid var(--border); color:var(--muted); }
+  .section-head .spacer { flex:1; }
+  .section-head .icon-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:15px; padding:3px 7px; border-radius:5px; }
+  .section-head .icon-btn:hover { background:var(--border); color:var(--text); }
+  .section-body { padding:12px 14px; }
+  .row { display:flex; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+  .field { display:flex; flex-direction:column; gap:4px; flex:1; min-width:120px; }
+  .field label { font-size:11px; color:var(--muted); }
+  .field input,.field select,.field textarea { background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:7px 9px; font-size:13px; font-family:inherit; }
+  .field input:focus,.field select:focus { outline:none; border-color:var(--accent2); }
+  .chip-list { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .chip { display:inline-flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:12px; }
+  .chip button { background:none; border:none; color:var(--danger); cursor:pointer; font-size:13px; line-height:1; }
+  .add-chip { background:none; border:1px dashed var(--border); border-radius:6px; color:var(--muted); padding:4px 8px; font-size:12px; cursor:pointer; }
+  .add-chip:hover { border-color:var(--accent2); color:var(--accent2); }
+  .sub-card { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px; margin-top:8px; }
+  .sub-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .sub-head .title { font-size:12px; font-weight:600; color:var(--muted); }
+  .sub-head .spacer { flex:1; }
+  .empty-hint { color:var(--muted); font-size:13px; padding:24px 14px; text-align:center; }
+  .yaml-wrap { display:flex; flex-direction:column; height:100%; }
+  pre#yaml-out { margin:0; padding:12px 14px; font-family:"SFMono-Regular",Consolas,monospace; font-size:12.5px; line-height:1.6; white-space:pre-wrap; word-break:break-word; flex:1; overflow:auto; }
+  .lint-bar { display:flex; align-items:center; gap:14px; padding:8px 14px; border-top:1px solid var(--border); background:var(--panel2); font-size:12px; }
+  .lint-list { padding:6px 14px 14px; max-height:42vh; overflow:auto; }
+  .lint-item { display:flex; gap:8px; padding:7px 10px; border-radius:6px; margin-bottom:5px; font-size:12.5px; align-items:flex-start; }
+  .lint-item.err { background:rgba(248,81,73,.10); border:1px solid rgba(248,81,73,.3); }
+  .lint-item.warn { background:rgba(210,153,34,.10); border:1px solid rgba(210,153,34,.3); }
+  .lint-item .code { color:var(--muted); font-family:monospace; font-size:11px; }
+  .drag-over { outline:2px dashed var(--accent2); outline-offset:-4px; }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:98; display:grid; place-items:center; }
+  .modal { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px; width:520px; max-width:90vw; }
+  .modal textarea { width:100%; height:280px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:8px; font-family:monospace; padding:10px; font-size:13px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">OpenShell <span>Policy Builder</span></div>
+    <div class="badge">schema v0.1.5</div>
+    <div class="spacer"></div>
+    <button id="btn-import">Import YAML</button>
+    <button id="btn-copy">Copy YAML</button>
+    <button id="btn-download" class="primary">Download .yaml</button>
+  </header>
+  <div class="layout">
+    <div class="pane" id="palette-pane">
+      <h3>Sections</h3>
+      <div class="palette" id="palette"></div>
+      <div class="palette-info">Drag a section onto the canvas, or click to add. Reorder network rules by dragging. Copy any section with the duplicate button. The right panel live-lints against OpenShell v0.1.5 as you edit.</div>
+    </div>
+    <div class="pane" id="editor-pane">
+      <h3>Policy Canvas</h3>
+      <div class="editor" id="editor"></div>
+    </div>
+    <div class="pane">
+      <h3>Live YAML &amp; Lint</h3>
+      <div class="yaml-wrap">
+        <pre id="yaml-out"></pre>
+        <div class="lint-bar" id="lint-bar"></div>
+        <div class="lint-list" id="lint-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+/* ---- inlined schema/linter/yaml (mirrors the Vitest-tested TypeScript core in src/) ---- */
+var TOP=['version','filesystem_policy','landlock','process','network_policies','network_middlewares'];
+var MAX_PATHS=256,MAX_MW=10,MAX_HP=32,MIN_WL=3,MAX_UID=4294967294;
+var PROTO=['rest','websocket','graphql','mcp','json-rpc','tcp'];
+var ACCESS=['read-only','read-write','full'];
+function clone(o){return JSON.parse(JSON.stringify(o));}
+function isArr(a){return Array.isArray(a);}
+
+/* ---- minimal block-style YAML serializer for the OpenShell policy shape ---- */
+function yq(s){return /^[A-Za-z0-9_./:-]+$/.test(s)?s:JSON.stringify(s);} /* quote if special chars */
+function dumpVal(v,indent){var pad='  '.repeat(indent);if(v===null||v===undefined)return 'null';
+  if(typeof v==='boolean')return v?'true':'false';
+  if(typeof v==='number')return String(v);
+  if(typeof v==='string')return yq(v);
+  if(isArr(v)){if(v.length===0)return '[]';return '\n'+v.map(function(x){return pad+'- '+dumpVal(x,indent+1).replace(/^\n/,'');}).join('\n');}
+  var keys=Object.keys(v);if(keys.length===0)return '{}';
+  return '\n'+keys.map(function(k){return pad+yq(k)+': '+dumpVal(v[k],indent+1).replace(/^\n/,function(m){return '';});}).join('\n');}
+function serialize(p){var clean={};for(var k in p){var v=p[k];if(v===undefined||v===null)continue;if(isArr(v)&&v.length===0)continue;if(typeof v==='object'&&!isArr(v)&&Object.keys(v).length===0)continue;clean[k]=v;}
+  var out=[];for(var k2 in clean){out.push(yq(k2)+':'+dumpVal(clean[k2],1));}return out.join('\n')+'\n';}
+
+/* ---- linter ---- */
+function lint(p){var out=[];
+  for(var k in p)if(TOP.indexOf(k)<0)out.push({level:'error',code:'unknown-field',message:'Unknown field "'+k+'"',path:k});
+  var fs=p.filesystem_policy;if(fs){var n=0;
+    [fs.read_only||[],fs.read_write||[]].forEach(function(L){L.forEach(function(x){n++;if(!x||x[0]!=='/')out.push({level:'error',code:'path-not-absolute',message:'"'+x+'" must be absolute',path:'filesystem_policy'});if(x&&x.indexOf('..')>=0)out.push({level:'error',code:'path-dotdot',message:'"'+x+'" must not contain ..',path:'filesystem_policy'});});});
+    (fs.read_write||[]).forEach(function(x){if(x==='/')out.push({level:'error',code:'read-write-root',message:'read_write cannot contain "/"',path:'filesystem_policy.read_write'});});
+    if(n>MAX_PATHS)out.push({level:'error',code:'too-many-paths',message:n+' paths (max '+MAX_PATHS+')',path:'filesystem_policy'});}
+  var pr=p.process;if(pr)['run_as_user','run_as_group'].forEach(function(f){var v=pr[f];if(v===undefined)return;if(v==='sandbox')return;var num=Number(v);
+    if(!Number.isInteger(num))out.push({level:'error',code:'uid-invalid',message:f+' must be "sandbox" or numeric',path:'process.'+f});
+    else if(num===0)out.push({level:'error',code:'root-uid',message:f+' must not be root (0)',path:'process.'+f});
+    else if(num<1||num>MAX_UID)out.push({level:'error',code:'uid-out-of-range',message:num+' out of range 1..'+MAX_UID,path:'process.'+f});});
+  var np=p.network_policies;if(np)Object.keys(np).forEach(function(key){var b='network_policies.'+key;
+    if(key.indexOf('_provider_')===0)out.push({level:'error',code:'reserved-key-prefix',message:'"'+key+'" cannot start with _provider_',path:b});
+    var rule=np[key];(rule.endpoints||[]).forEach(function(e,i){var ep=b+'.endpoints['+i+']';
+      if(e.port!==undefined&&e.ports!==undefined)out.push({level:'error',code:'port-ports-exclusive',message:'Set port OR ports',path:ep});
+      var pp=e.protocol;
+      if(pp==='tcp'){if(!e.host||(e.port===undefined&&e.ports===undefined))out.push({level:'error',code:'tcp-requires-host-port',message:'tcp needs host+port',path:ep});if(e.access||e.rules||e.deny_rules||e.path)out.push({level:'error',code:'tcp-no-request-fields',message:'tcp accepts no request fields',path:ep});}
+      else if(pp&&['rest','websocket','graphql'].indexOf(pp)>=0){if(!e.access&&!e.rules)out.push({level:'error',code:'missing-access-or-rules',message:pp+' needs access or rules',path:ep});if(e.access&&e.rules)out.push({level:'error',code:'access-rules-exclusive',message:'access+rules are exclusive',path:ep});}
+      else if(pp==='mcp'){if(!e.rules&&!(e.mcp&&e.mcp.allow_all_known_mcp_methods))out.push({level:'error',code:'mcp-needs-rules-or-all-methods',message:'mcp needs rules or allow_all_known_mcp_methods',path:ep});}
+      if(e.deny_rules&&!pp)out.push({level:'error',code:'deny-rules-require-protocol',message:'deny_rules need protocol',path:ep});
+      if(e.host&&e.host.indexOf('*')>=0&&e.host.split('.').filter(function(s){return s;}).length<MIN_WL)out.push({level:'error',code:'wildcard-host-labels',message:'"'+e.host+'" needs >=3 labels',path:ep});
+      if(e.tls==='skip'&&pp&&pp!=='tcp')out.push({level:'error',code:'tls-skip-with-protocol',message:'tls:skip needs no request protocol',path:ep});});});
+  var mw=p.network_middlewares;if(mw){var ks=Object.keys(mw);if(ks.length>MAX_MW)out.push({level:'error',code:'too-many-middlewares',message:ks.length+' (max '+MAX_MW+')',path:'network_middlewares'});
+    var ord={};ks.forEach(function(k){var m=mw[k];if((m.endpoints&&m.endpoints.include||[]).length>MAX_HP)out.push({level:'error',code:'too-many-host-patterns',message:'include max '+MAX_HP,path:'network_middlewares.'+k});if(m.order!==undefined){ord[m.order]=ord[m.order]||[];ord[m.order].push(k);}});
+    Object.keys(ord).forEach(function(o2){if(ord[o2].length>1)out.push({level:'error',code:'duplicate-order',message:'order '+o2+' used by '+ord[o2].join(', '),path:'network_middlewares'});});}
+  return out;}
+
+/* ---- minimal YAML parser (for import) ---- */
+function parseYAML(text){var lines=text.split('\n');var root={};var stack=[{d:-1,o:root}];
+  for(var li=0;li<lines.length;li++){var raw=lines[li];if(!raw.trim()||raw.trim().indexOf('#')===0)continue;
+    var m=/^(\s*)(.*?):\s*(.*)$/.exec(raw);if(!m)continue;var depth=m[1].length/2;var key=m[2];var val=m[3];
+    while(stack.length>1&&depth<=stack[stack.length-1].d)stack.pop();
+    var cur=stack[stack.length-1].o;var node={};
+    if(val===''){cur[key]=node;stack.push({d:depth,o:node});}
+    else if(val==='[]'){cur[key]=[];}
+    else if(val==='{}'){cur[key]={};}
+    else if(val[0]==='['){cur[key]=val.slice(1,-1).split(',').map(function(s){return s.trim().replace(/^["']|["']$/g,'');});}
+    else{var s=val.replace(/^["']|["']$/g,'');cur[key]=/^-?\d+$/.test(s)?Number(s):(s==='true'?true:(s==='false'?false:s));}}
+  return root;}
+
+/* ---- state + render ---- */
+var state={version:1};
+function $(s){return document.querySelector(s);}
+function el(t,c,h){var e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;}
+
+function render(){renderEditor();renderYaml();}
+function renderYaml(){$('#yaml-out').textContent=serialize(state);
+  var res=lint(state);var errs=res.filter(function(r){return r.level==='error';}).length;var warns=res.filter(function(r){return r.level==='warning';}).length;var ok=errs===0;
+  $('#lint-bar').innerHTML='<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+(ok?'var(--ok)':'var(--danger)')+'"></span><b>'+(ok?'Valid policy':errs+' error'+(errs!==1?'s':'')+(warns?', '+warns+' warning'+(warns!==1?'s':''):''))+'</b><span style="color:var(--muted)">'+res.length+' lint finding'+(res.length!==1?'s':'')+'</span>';
+  var list=$('#lint-list');list.innerHTML='';
+  if(res.length===0){list.appendChild(el('div','empty-hint','No issues. Policy is valid against OpenShell v0.1.5.'));return;}
+  res.forEach(function(r){var it=el('div','lint-item '+(r.level==='error'?'err':'warn'));
+    it.innerHTML='<span style="color:'+(r.level==='error'?'var(--danger)':'var(--warn)')+'">&#9679;</span><div><div><b>'+r.code+'</b> <span class="code">'+r.path+'</span></div><div style="color:var(--muted)">'+r.message+'</div></div>';
+    list.appendChild(it);});}
+
+function renderEditor(){var ed=$('#editor');ed.innerHTML='';
+  var secs=Object.keys(state).filter(function(k){return k!=='version';});
+  if(secs.length===0){ed.appendChild(el('div','empty-hint','Drag a section from the left, or click one to add it.'));return;}
+  secs.forEach(function(s){if(s==='filesystem_policy')ed.appendChild(fsCard());
+    else if(s==='landlock')ed.appendChild(llCard());else if(s==='process')ed.appendChild(procCard());
+    else if(s==='network_policies')ed.appendChild(npCard());else if(s==='network_middlewares')ed.appendChild(mwCard());});}
+
+function cardShell(title,tag,ondel){var c=el('div','section-card');var h=el('div','section-head');
+  h.appendChild(el('span','grip','&#9776;'));h.appendChild(el('span','title',title));if(tag)h.appendChild(el('span','tag',tag));h.appendChild(el('span','spacer',''));
+  var del=el('button','icon-btn','&#10005;');del.onclick=ondel;h.appendChild(del);c.appendChild(h);
+  var body=el('div','section-body');c.appendChild(body);return{c:c,body:body};}
+
+function fsCard(){var r=cardShell('Filesystem Policy','startup',function(){delete state.filesystem_policy;render();});var fs=state.filesystem_policy;
+  r.body.appendChild(boolField('include_workdir','Include working dir',fs,'include_workdir'));
+  r.body.appendChild(chipField('read_only','Read-only paths',fs,'read_only'));
+  r.body.appendChild(chipField('read_write','Read-write paths',fs,'read_write'));return r.c;}
+function llCard(){var r=cardShell('Landlock','startup',function(){delete state.landlock;render();});var ll=state.landlock;
+  var f=el('div','field');f.appendChild(el('label','','compatibility'));var sel=el('select','');
+  ['best_effort','hard_requirement'].forEach(function(o){var op=el('option','',o);op.value=o;if(ll.compatibility===o)op.selected=true;sel.appendChild(op);});
+  sel.onchange=function(){ll.compatibility=sel.value;render();};f.appendChild(sel);r.body.appendChild(f);return r.c;}
+function procCard(){var r=cardShell('Process','startup',function(){delete state.process;render();});var pr=state.process;
+  r.body.appendChild(txtField('run_as_user','sandbox or numeric UID',pr,'run_as_user'));
+  r.body.appendChild(txtField('run_as_group','sandbox or numeric GID',pr,'run_as_group'));return r.c;}
+function npCard(){var r=cardShell('Network Policies','live',function(){delete state.network_policies;render();});var np=state.network_policies;
+  Object.keys(np).forEach(function(key){var rule=np[key];var sub=el('div','sub-card');var sh=el('div','sub-head');
+    sh.appendChild(el('span','grip','&#9776;'));sh.draggable=true;sh.addEventListener('dragstart',function(e){e.dataTransfer.setData('text/np',key);});
+    sh.appendChild(el('span','title',key));sh.appendChild(el('span','spacer',''));
+    var cp=el('button','icon-btn','&#8675;');cp.title='Copy rule';cp.onclick=function(){var n=key+'_copy',i=1;while(np[n])n=key+'_copy_'+i++;np[n]=clone(np[key]);render();};sh.appendChild(cp);
+    var rn=el('button','icon-btn','&#10005;');rn.onclick=function(){delete np[key];render();};sh.appendChild(rn);sub.appendChild(sh);
+    var nm=el('div','field');nm.appendChild(el('label','','display name'));var ni=el('input','');ni.value=rule.name||'';ni.placeholder=key;ni.oninput=function(){rule.name=ni.value||undefined;renderYaml();};nm.appendChild(ni);sub.appendChild(nm);
+    (rule.endpoints||[]).forEach(function(e,i){var ec=el('div','sub-card');ec.style.marginTop='6px';
+      var eh=el('div','sub-head');eh.appendChild(el('span','title','endpoint #'+(i+1)));eh.appendChild(el('span','spacer',''));
+      var ecp=el('button','icon-btn','&#8675;');ecp.onclick=function(){rule.endpoints.push(clone(e));render();};eh.appendChild(ecp);
+      var edel2=el('button','icon-btn','&#10005;');edel2.onclick=function(){rule.endpoints.splice(i,1);render();};eh.appendChild(edel2);ec.appendChild(eh);
+      var g=el('div','row');
+      g.appendChild(txtField('host','host / wildcard',e,'host'));
+      g.appendChild(numField('port','443',e,'port'));
+      g.appendChild(selField('protocol',PROTO,e,'protocol'));
+      g.appendChild(selField2('enforcement',['enforce','audit'],e,'enforcement'));
+      g.appendChild(selField2('access',ACCESS,e,'access'));ec.appendChild(g);sub.appendChild(ec);});
+    var addEp=el('button','add-chip','+ add endpoint');addEp.onclick=function(){rule.endpoints=rule.endpoints||[];rule.endpoints.push({host:'',port:443});render();};sub.appendChild(addEp);
+    var bl=el('div','field');bl.appendChild(el('label','','binaries'));var cl=el('div','chip-list');
+    (rule.binaries||[]).forEach(function(b,i){var ch=el('span','chip',b.path+' <button>&#10005;</button>');ch.querySelector('button').onclick=function(){rule.binaries.splice(i,1);render();};cl.appendChild(ch);});
+    var addB=el('button','add-chip','+ add binary');addB.onclick=function(){var v=prompt('Binary path:');if(v){rule.binaries=rule.binaries||[];rule.binaries.push({path:v});render();}};cl.appendChild(addB);bl.appendChild(cl);sub.appendChild(bl);
+    r.body.appendChild(sub);});return r.c;}
+function mwCard(){var r=cardShell('Network Middlewares','live',function(){delete state.network_middlewares;render();});var mw=state.network_middlewares||{};
+  Object.keys(mw).forEach(function(key){var m=mw[key];var sub=el('div','sub-card');var sh=el('div','sub-head');
+    sh.appendChild(el('span','title',key));sh.appendChild(el('span','spacer',''));
+    var del=el('button','icon-btn','&#10005;');del.onclick=function(){delete mw[key];render();};sh.appendChild(del);sub.appendChild(sh);
+    sub.appendChild(txtField('middleware','openshell/regex',m,'middleware'));
+    sub.appendChild(txtField('name',key,m,'name'));
+    sub.appendChild(numField('order','0',m,'order'));
+    sub.appendChild(chipField2('include','include patterns',m.endpoints,'include'));
+    sub.appendChild(chipField2('exclude','exclude patterns',m.endpoints,'exclude'));
+    r.body.appendChild(sub);});
+  var add=el('button','add-chip','+ add middleware');add.onclick=function(){var k=prompt('Middleware key:');if(k){if(!state.network_middlewares)state.network_middlewares={};state.network_middlewares[k]={middleware:'openshell/regex',endpoints:{include:[]}};render();}};r.body.appendChild(add);return r.c;}
+
+function boolField(label2,desc,obj,key2){var f=el('div','field');f.appendChild(el('label','',label2));
+  var sel=el('select','');['true','false'].forEach(function(o){var op=el('option','',o);op.value=o;if(String(obj[key2])===o)op.selected=true;sel.appendChild(op);});
+  sel.onchange=function(){obj[key2]=sel.value==='true';render();};f.appendChild(sel);return f;}
+function txtField(label2,ph,obj,key2){var f=el('div','field');f.appendChild(el('label','',label2));
+  var inp=el('input','');inp.placeholder=ph;inp.value=obj[key2]!==undefined?obj[key2]:'';inp.oninput=function(){obj[key2]=inp.value||undefined;renderYaml();};f.appendChild(inp);return f;}
+function numField(label2,ph,obj,key2){var f=el('div','field');f.appendChild(el('label','',label2));
+  var inp=el('input','');inp.type='number';inp.placeholder=ph;inp.value=obj[key2]!==undefined?obj[key2]:'';inp.oninput=function(){obj[key2]=inp.value?Number(inp.value):undefined;renderYaml();};f.appendChild(inp);return f;}
+function selField(label2,opts,obj,key2){var f=el('div','field');f.appendChild(el('label','',label2));
+  var sel=el('select','');var op0=el('option','(none)');op0.value='';sel.appendChild(op0);
+  opts.forEach(function(o){var op=el('option','',o);op.value=o;if(obj[key2]===o)op.selected=true;sel.appendChild(op);});
+  sel.onchange=function(){obj[key2]=sel.value||undefined;render();};f.appendChild(sel);return f;}
+function selField2(label2,opts,obj,key2){var f=el('div','field');f.appendChild(el('label','',label2));
+  var sel=el('select','');var op0=el('option','(audit)');op0.value='';sel.appendChild(op0);
+  opts.forEach(function(o){var op=el('option','',o);op.value=o;if(obj[key2]===o)op.selected=true;sel.appendChild(op);});
+  sel.onchange=function(){obj[key2]=sel.value||undefined;render();};f.appendChild(sel);return f;}
+function chipField(key2,label2,obj,key2b){var f=el('div','field');f.appendChild(el('label','',label2));var cl=el('div','chip-list');
+  (obj[key2b]||[]).forEach(function(p){var ch=el('span','chip',p+' <button>&#10005;</button>');ch.querySelector('button').onclick=function(){obj[key2b]=obj[key2b].filter(function(x){return x!==p;});render();};cl.appendChild(ch);});
+  var add=el('button','add-chip','+ add path');add.onclick=function(){var v=prompt('Absolute path:');if(v&&v[0]==='/'){obj[key2b]=obj[key2b]||[];obj[key2b].push(v);render();}else if(v)alert('Path must be absolute.');};cl.appendChild(add);f.appendChild(cl);return f;}
+function chipField2(key2,label2,obj,key2b){if(!obj)obj={include:[]};var f=el('div','field');f.appendChild(el('label','',label2));var cl=el('div','chip-list');
+  (obj[key2b]||[]).forEach(function(p){var ch=el('span','chip',p+' <button>&#10005;</button>');ch.querySelector('button').onclick=function(){obj[key2b]=obj[key2b].filter(function(x){return x!==p;});render();};cl.appendChild(ch);});
+  var add=el('button','add-chip','+ add');add.onclick=function(){var v=prompt('Host pattern:');if(v){obj[key2b]=obj[key2b]||[];obj[key2b].push(v);render();}};cl.appendChild(add);f.appendChild(cl);return f;}
+
+/* ---- palette ---- */
+var SECTIONS=[{key:'filesystem_policy',label:'Filesystem',desc:'read / write paths',icon:'&#128193;'},{key:'landlock',label:'Landlock',desc:'kernel isolation mode',icon:'&#128274;'},{key:'process',label:'Process',desc:'uid / gid identity',icon:'&#128100;'},{key:'network_policies',label:'Network Policy',desc:'endpoints + binaries',icon:'&#127760;'},{key:'network_middlewares',label:'Middleware',desc:'traffic inspection',icon:'&#129513;'}];
+function renderPalette(){var pal=$('#palette');pal.innerHTML='';SECTIONS.forEach(function(s){var it=el('div','palette-item');it.draggable=true;
+  it.addEventListener('dragstart',function(e){e.dataTransfer.setData('text/section',s.key);});
+  it.innerHTML='<span class="icon">'+s.icon+'</span><div><div class="label">'+s.label+'</div><div class="desc">'+s.desc+'</div></div>';
+  it.onclick=function(){addSection(s.key);};pal.appendChild(it);});}
+function addSection(key){if(key==='filesystem_policy')state.filesystem_policy={include_workdir:false,read_only:[],read_write:[]};
+  else if(key==='landlock')state.landlock={compatibility:'best_effort'};
+  else if(key==='process')state.process={run_as_user:'sandbox',run_as_group:'sandbox'};
+  else if(key==='network_policies'){if(!state.network_policies)state.network_policies={};var k='rule_'+Date.now().toString(36).slice(-4);state.network_policies[k]={endpoints:[],binaries:[]};}
+  else if(key==='network_middlewares'){if(!state.network_middlewares)state.network_middlewares={};var k2='mw_'+Date.now().toString(36).slice(-4);state.network_middlewares[k2]={middleware:'openshell/regex',endpoints:{include:[]}};}
+  render();}
+
+/* ---- drop zone ---- */
+var editorEl=$('#editor');
+editorEl.addEventListener('dragover',function(e){e.preventDefault();editorEl.classList.add('drag-over');});
+editorEl.addEventListener('dragleave',function(){editorEl.classList.remove('drag-over');});
+editorEl.addEventListener('drop',function(e){e.preventDefault();editorEl.classList.remove('drag-over');
+  var sec=e.dataTransfer.getData('text/section');if(sec){addSection(sec);return;}
+  var npk=e.dataTransfer.getData('text/np');if(npk&&state.network_policies){var m=state.network_policies;var rule=m[npk];delete m[npk];var rb={};Object.keys(m).forEach(function(k){rb[k]=m[k];});rb[npk]=rule;state.network_policies=rb;render();}});
+
+/* ---- buttons ---- */
+$('#btn-copy').onclick=function(){navigator.clipboard.writeText(serialize(state));var t=this.textContent;this.textContent='Copied!';var b=this;setTimeout(function(){b.textContent=t;},1200);};
+$('#btn-download').onclick=function(){var bb=new Blob([serialize(state)],{type:'text/yaml'});var a=el('a','','');a.href=URL.createObjectURL(bb);a.download='policy.yaml';a.click();};
+$('#btn-import').onclick=function(){var ov=el('div','overlay');var m=el('div','modal');var ta=el('textarea','','');ta.value=serialize(state);m.appendChild(ta);
+  var row=el('div','');row.style.cssText='display:flex;gap:10px;margin-top:10px;justify-content:flex-end;';
+  var ok=el('button','primary','Apply');ok.style.cssText='background:var(--accent);color:#06140a;border:none;border-radius:6px;padding:7px 16px;font-weight:600;cursor:pointer;';
+  var cancel=el('button','','Cancel');cancel.style.cssText='background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px 16px;cursor:pointer;';
+  cancel.onclick=function(){ov.remove();};
+  ok.onclick=function(){try{var o=parseYAML(ta.value);if(o&&o.version===1){state=o;render();ov.remove();}else alert('version must be 1');}catch(err){alert('YAML error: '+err.message);}};
+  row.appendChild(cancel);row.appendChild(ok);m.appendChild(row);ov.appendChild(m);document.body.appendChild(ov);};
+
+/* ---- init ---- */
+renderPalette();
+state={version:1,filesystem_policy:{include_workdir:true,read_only:['/usr','/lib','/etc'],read_write:['/tmp']},landlock:{compatibility:'best_effort'},process:{run_as_user:'sandbox',run_as_group:'sandbox'},network_policies:{github_api:{name:'github-api-readonly',endpoints:[{host:'api.github.com',port:443,protocol:'rest',enforcement:'enforce',access:'read-only'}],binaries:[{path:'/usr/bin/gh'},{path:'/usr/bin/curl'}]}}};
+render();
+</script>
+</body>
+</html>
