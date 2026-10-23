@@ -13,8 +13,8 @@ const builder = usePolicyBuilder();
       <div class="logo">OpenShell <span>Policy Builder</span></div>
       <div class="badge">schema v0.1.5</div>
       <div class="spacer" />
-      <button class="btn" @click="builder.importYaml?.(builder.yaml.value)">Import</button>
-      <button class="btn" @click="builder.downloadYaml()">Copy YAML</button>
+      <button class="btn" @click="builder.importModalOpen.value = true">Import</button>
+      <button class="btn" @click="builder.copyYaml()">Copy YAML</button>
       <button class="btn primary" @click="builder.downloadYaml()">Download .yaml</button>
     </header>
     <div class="layout">

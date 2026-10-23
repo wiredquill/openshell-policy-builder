@@ -1,26 +1,23 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, watch } from 'vue';
 import type { PolicyBuilder } from '../usePolicyBuilder.js';
 
 const props = defineProps<{ builder: PolicyBuilder }>();
 
-const showImport = ref(false);
 const importText = ref('');
 
-function openImport() {
-  importText.value = props.builder.yaml.value;
-  showImport.value = true;
-}
+// Sync local text when modal opens
+watch(() => props.builder.importModalOpen.value, (open) => {
+  if (open) importText.value = props.builder.yaml.value;
+});
+
 function applyImport() {
   const errors = props.builder.importYaml(importText.value);
   if (errors.length > 0) {
     alert(errors.join('\n'));
   } else {
-    showImport.value = false;
+    props.builder.importModalOpen.value = false;
   }
-}
-function copyYaml() {
-  navigator.clipboard.writeText(props.builder.yaml.value);
 }
 </script>
 
@@ -54,12 +51,12 @@ function copyYaml() {
       </div>
     </div>
 
-    <div v-if="showImport" class="overlay" @click.self="showImport = false">
+    <div v-if="props.builder.importModalOpen.value" class="overlay" @click.self="props.builder.importModalOpen.value = false">
       <div class="modal">
         <h3>Import YAML</h3>
         <textarea v-model="importText" />
         <div class="modal-actions">
-          <button class="btn" @click="showImport = false">Cancel</button>
+          <button class="btn" @click="props.builder.importModalOpen.value = false">Cancel</button>
           <button class="btn primary" @click="applyImport">Apply</button>
         </div>
       </div>
@@ -92,8 +89,13 @@ function copyYaml() {
   display: grid; place-items: center; }
 .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
   padding: 16px; width: 520px; max-width: 90vw; }
+.modal h3 { margin: 0 0 10px; font-size: 14px; }
 .modal textarea { width: 100%; height: 280px; background: var(--bg); color: var(--text);
   border: 1px solid var(--border); border-radius: 8px; font-family: monospace;
-  padding: 10px; font-size: 13px; }
+  padding: 10px; font-size: 13px; resize: vertical; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+.btn { background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 7px 16px; font-size: 13px; cursor: pointer; }
+.btn:hover { border-color: var(--accent2); }
+.btn.primary { background: var(--accent); color: #06140a; border-color: var(--accent); font-weight: 600; }
 </style>

@@ -1,4 +1,4 @@
-import { reactive, computed } from 'vue';
+import { reactive, ref, computed } from 'vue';
 import type { Policy } from './schema.js';
 import { EMPTY_POLICY } from './schema.js';
 import { lint } from './linter.js';
@@ -26,6 +26,7 @@ export function usePolicyBuilder() {
   const lintErrors = computed(() => lintResults.value.filter((r) => r.level === 'error'));
   const lintWarnings = computed(() => lintResults.value.filter((r) => r.level === 'warning'));
   const isValid = computed(() => lintErrors.value.length === 0);
+  const importModalOpen = ref(false);
 
   function setPolicy(p: Policy) {
     Object.assign(state.policy, p);
@@ -101,6 +102,10 @@ export function usePolicyBuilder() {
     URL.revokeObjectURL(url);
   }
 
+  function copyYaml() {
+    navigator.clipboard.writeText(yaml.value);
+  }
+
   return {
     state,
     yaml,
@@ -108,6 +113,7 @@ export function usePolicyBuilder() {
     lintErrors,
     lintWarnings,
     isValid,
+    importModalOpen,
     addSection,
     removeSection,
     copyNetworkRule,
@@ -120,6 +126,7 @@ export function usePolicyBuilder() {
     importYaml,
     exportYaml,
     downloadYaml,
+    copyYaml,
   };
 }
 
